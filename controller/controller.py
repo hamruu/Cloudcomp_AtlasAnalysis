@@ -1,4 +1,4 @@
-#This is the program for the controller container. It involves sending the files off for processing, receiving them, and then 
+#This is the controller.
 
 import numpy as np # for numerical calculations such as histogramming
 import matplotlib.pyplot as plt # for plotting
@@ -10,19 +10,19 @@ import awkward as ak # to represent nested data in columnar format
 import vector # for 4-momentum calculations
 import time # for printing time stamps
 import requests # for file gathering, if needed
+import pika
+import json
+import os
 
 import atlasopenmagic as atom
 atom.available_releases()
 atom.set_release('2025e-13tev-beta')
 
-###################################################################################################################
-######################################### CONSTANTS AND FUNCTIONS ###################################################
-####################################################################################################################
-# Set luminosity to 36.6 fb-1, data size of the full release
+
 lumi = 36.6
 
 # Controls the fraction of all events analysed
-fraction = 0.3 # reduce this is if you want quicker runtime (implemented in the loop over the tree)
+fraction = 0.3 
 
 # Define empty dictionary to hold awkward arrays
 all_data = {}
@@ -89,8 +89,6 @@ def calc_weight(weight_variables, events):
 ##################### Variables defined #######################################################################
 ###############################################################################################################
 
-######################### START ANALYIS ##########
-
 # Analysis start
 for s in samples:
 
@@ -103,74 +101,5 @@ for s in samples:
     # Loop over each file
     for val in samples[s]['list']:
 
-        fileString = val
-#############################################################################################################
-        # start the clock
-        start = time.time()
-        print("\t"+val+":")
-
-        # Open file
-        tree = uproot.open(fileString + ":analysis")
-
-        sample_data = []
-
-        # Loop over data in the tree
-        for data in tree.iterate(variables + weight_variables + ["sum_of_weights", "lep_n"],
-                                 library="ak",
-                                 entry_stop=tree.num_entries*fraction):#, # process up to numevents*fraction
-                                #  step_size = 10000000):
-
-            # Number of events in this batch
-            nIn = len(data)
-
-            data = data[cut_trig(data.trigE, data.trigM)]
-            data = data[cut_trig_match(data.lep_isTrigMatched)]
-
-            # Record transverse momenta (see bonus activity for explanation)
-            data['leading_lep_pt'] = data['lep_pt'][:,0]
-            data['sub_leading_lep_pt'] = data['lep_pt'][:,1]
-            data['third_leading_lep_pt'] = data['lep_pt'][:,2]
-            data['last_lep_pt'] = data['lep_pt'][:,3]
-
-            # Cuts on transverse momentum
-            data = data[data['leading_lep_pt'] > 20]
-            data = data[data['sub_leading_lep_pt'] > 15]
-            data = data[data['third_leading_lep_pt'] > 10]
-
-            data = data[ID_iso_cut(data.lep_isLooseID,
-                                   data.lep_isMediumID,
-                                   data.lep_isLooseIso,
-                                   data.lep_isLooseIso,
-                                   data.lep_type)]
-
-            # Number Cuts
-
-            # Lepton cuts
-
-            lep_type = data['lep_type']
-            data = data[~cut_lep_type(lep_type)]
-            lep_charge = data['lep_charge']
-            data = data[~cut_lep_charge(lep_charge)]
-
-            # Invariant Mass
-            data['mass'] = calc_mass(data['lep_pt'], data['lep_eta'], data['lep_phi'], data['lep_e'])
-
-            # Store Monte Carlo weights in the data
-            if 'data' not in s: # Only calculates weights if the data is MC
-                data['totalWeight'] = calc_weight(weight_variables, data)
-
-            # Append data to the whole sample data list
-            sample_data.append(data)
-
-            if not 'data' in val:
-                nOut = sum(data['totalWeight']) # sum of weights passing cuts in this batch
-            else:
-                nOut = len(data)
-
-            elapsed = time.time() - start # time taken to process
-            print("\t\t nIn: "+str(nIn)+",\t nOut: \t"+str(nOut)+"\t in "+str(round(elapsed,1))+"s") # events before and after
-
-        frames.append(ak.concatenate(sample_data))
-
-    all_data[s] = ak.concatenate(frames) # dictionary entry is concatenated awkward arrays
-
+        fileString = val 
+        
