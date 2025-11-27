@@ -89,6 +89,15 @@ def calc_weight(weight_variables, events):
 ##################### Variables defined #######################################################################
 ###############################################################################################################
 
+rabbit_host = os.environ["RABBIT_HOST"]
+params = pika.ConnectionParameters(host=rabbit_host)
+connection = pika.BlockingConnection(params)
+channel = connection.channel()
+
+channel.queue_declare(queue= "task_queue")
+
+i = 0
+
 # Analysis start
 for s in samples:
 
@@ -100,6 +109,11 @@ for s in samples:
 
     # Loop over each file
     for val in samples[s]['list']:
-
-        fileString = val 
+        
+        task = [s, val]
+        channel.basic_publish(exchange='',
+            routing_key='task_queue',
+            body=json.dumps(task)
+        )
+    
         

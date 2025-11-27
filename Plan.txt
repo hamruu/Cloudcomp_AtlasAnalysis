@@ -1,0 +1,8 @@
+Controller needs to send off val 
+
+Worker does a version of the analysis specific to one val, returns hist data
+Controller reconstructs it and saves a plot of the histogram
+
+Do all concatenation on controller at the end.         frames.append(ak.concatenate(sample_data))
+
+    all_data[s] = ak.concatenate(frames) # dictionary entry is concatenated awkward arrays
