@@ -2,13 +2,13 @@
 
 import numpy as np # for numerical calculations such as histogramming
 import matplotlib.pyplot as plt # for plotting
-import matplotlib_inline # to edit the inline plot format
 #matplotlib_inline.backend_inline.set_matplotlib_formats('pdf', 'svg') # to make plots in pdf (vector) format
 from matplotlib.ticker import AutoMinorLocator # for minor ticks
 import uproot # for reading .root files
 import awkward as ak # to represent nested data in columnar format
 import vector # for 4-momentum calculations
 import time # for printing time stamps
+import aiohttp
 import requests # for file gathering, if needed
 import pika
 import json
@@ -17,16 +17,9 @@ import os
 import atlasopenmagic as atom
 atom.available_releases()
 atom.set_release('2025e-13tev-beta')
-
-
-lumi = 36.6
-
-# Controls the fraction of all events analysed
-fraction = 0.3 
-
-# Define empty dictionary to hold awkward arrays
-all_data = {}
-
+###################################################################################
+################################ defining variables ###############################
+###################################################################################
 skim = "exactly4lep"
 
 defs = {
@@ -43,43 +36,12 @@ defs = {
 
 samples   = atom.build_dataset(defs, skim=skim, protocol='https', cache=True)
 
-weight_variables = ["filteff","kfac","xsec","mcWeight","ScaleFactor_PILEUP", "ScaleFactor_ELE", "ScaleFactor_MUON", "ScaleFactor_LepTRIGGER"]
-variables = ['lep_pt','lep_eta','lep_phi','lep_e','lep_charge','lep_type','trigE','trigM','lep_isTrigMatched',
-            'lep_isLooseID','lep_isMediumID','lep_isLooseIso','lep_type']
-
-# Cut lepton type (electron type is 11,  muon type is 13)
-def cut_lep_type(lep_type):
-    sum_lep_type = lep_type[:, 0] + lep_type[:, 1] + lep_type[:, 2] + lep_type[:, 3]
-    lep_type_cut_bool = (sum_lep_type != 44) & (sum_lep_type != 48) & (sum_lep_type != 52)
-    return lep_type_cut_bool # True means we should remove this entry (lepton type does not match)
-
-# Cut lepton charge
-def cut_lep_charge(lep_charge):
-    # first lepton in each event is [:, 0], 2nd lepton is [:, 1] etc
-    sum_lep_charge = lep_charge[:, 0] + lep_charge[:, 1] + lep_charge[:, 2] + lep_charge[:, 3] != 0
-    return sum_lep_charge # True means we should remove this entry (sum of lepton charges is not equal to 0)
-
-# Calculate invariant mass of the 4-lepton state
-# [:, i] selects the i-th lepton in each event
 def calc_mass(lep_pt, lep_eta, lep_phi, lep_e):
     p4 = vector.zip({"pt": lep_pt, "eta": lep_eta, "phi": lep_phi, "E": lep_e})
     invariant_mass = (p4[:, 0] + p4[:, 1] + p4[:, 2] + p4[:, 3]).M # .M calculates the invariant mass
     return invariant_mass
 
-
-def cut_trig_match(lep_trigmatch):
-    trigmatch = lep_trigmatch
-    cut1 = ak.sum(trigmatch, axis=1) >= 1
-    return cut1
-
-def cut_trig(trigE,trigM):
-    return trigE | trigM
-
-
-def ID_iso_cut(IDel,IDmu,isoel,isomu,pid):
-    thispid = pid
-    return (ak.sum(((thispid == 13) & IDmu & isomu) | ((thispid == 11) & IDel & isoel), axis=1) == 4)
-
+lumi = 36.6
 def calc_weight(weight_variables, events):
     total_weight = lumi * 1000 / events["sum_of_weights"]
     for variable in weight_variables:
@@ -89,16 +51,24 @@ def calc_weight(weight_variables, events):
 ##################### Variables defined #######################################################################
 ###############################################################################################################
 
+################### message sending and receiving stuff ################
 rabbit_host = os.environ["RABBIT_HOST"]
 params = pika.ConnectionParameters(host=rabbit_host)
 connection = pika.BlockingConnection(params)
 channel = connection.channel()
 
-channel.queue_declare(queue= "task_queue")
+channel.queue_declare(queue= "taskqueue")
+channel.queue_declare(queue = "resultqueue")
+################# message sending and receiving stuff ##############
 
-i = 0
+
+all_data = {} #To accumulate the hist data that comes back from the workers
 
 # Analysis start
+
+tasks_sent = 0
+results_received = 0
+
 for s in samples:
 
     # Print which sample is being processed
@@ -109,11 +79,37 @@ for s in samples:
 
     # Loop over each file
     for val in samples[s]['list']:
-        
-        task = [s, val]
+        tasks_sent += 1
+
+        task = {"sample": s, "filepath": val}
         channel.basic_publish(exchange='',
-            routing_key='task_queue',
+            routing_key='taskqueue',
             body=json.dumps(task)
         )
+
+def callback(channel, method, properties, body):
+    global results_received
+    results_received += 1
     
+    result = json.loads(body.decode())
+    sample = result["sample"]
+    filepath = result["filepath"]
+    hist_segment = result["result"]
+
+    channel.basic_ack(delivery_tag=method.delivery_tag)
+
+    if results_received == tasks_sent:
+        print("All results received.")
+        channel.stop_consuming()
+        connection.close()
+    
+
+
+
+    
+
+channel.basic_consume(queue="resultqueue",on_message_callback=callback)
+channel.start_consuming()
         
+#NEEDS TO RECEIVE AND PLOT!
+#Read up on rabbitmq docs, persistent mode for delivery, durable queues.
