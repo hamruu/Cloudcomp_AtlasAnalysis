@@ -22,6 +22,8 @@ services:
         condition: service_healthy
     environment:
       RABBIT_HOST: rabbitmq
+    volumes:
+      - ./plots:/plots
   worker:
     build: worker/.
     networks:
@@ -34,4 +36,4 @@ services:
 
 networks:
   rabbit:
-    driver: bridge
+    driver: bridge #Use overlay if swarming
