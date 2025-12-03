@@ -1,0 +1,48 @@
+version: "3.9"
+
+services:
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    networks:
+      - rabbit
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+
+  controller:
+    image: atlas/controller:latest
+    networks:
+      - rabbit
+    environment:
+      RABBIT_HOST: rabbitmq
+    volumes:
+      - ./plots:/plots
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: none #So it does not run forever
+
+  worker:
+    image: atlas/worker:latest
+    networks:
+      - rabbit
+    environment:
+      RABBIT_HOST: rabbitmq
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+
+networks:
+  rabbit:
+    driver: overlay
