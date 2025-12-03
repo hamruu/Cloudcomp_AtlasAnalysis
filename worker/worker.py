@@ -126,9 +126,7 @@ def process_file(s, val): #Val and S have come from channel queue consume and so
 
 
  
-
-
-
+#Defining callback to tell worker how to process messages from controller and send back results
 
 def callback(channel, method, properties, body):
     global messages_received

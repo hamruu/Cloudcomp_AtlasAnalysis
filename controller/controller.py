@@ -26,10 +26,10 @@ defs = {
                                                         410219,412043,364243,
                                                         364242,364246,364248,
                                                         700320,700321,700322,
-                                                        700323,700324,700325], 'color': "#124405" }, # purple
-    r'Background $ZZ^{*}$':     {'dids': [700600],'color': "#2bcb1c" },# red
+                                                        700323,700324,700325], 'color': "#124405" }, #dark green
+    r'Background $ZZ^{*}$':     {'dids': [700600],'color': "#2bcb1c" },# green
     r'Signal ($m_H$ = 125 GeV)':  {'dids': [345060, 346228, 346310, 346311, 346312,
-                                          346340, 346341, 346342],'color': "#43CCF1" },# light blue
+                                          346340, 346341, 346342],'color': "#43CCF1" },#light blue
 }
 
 samples   = atom.build_dataset(defs, skim=skim, protocol='https', cache=True)
