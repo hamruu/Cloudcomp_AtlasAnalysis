@@ -24,5 +24,6 @@ docker compose up --scale worker=N
 
 Where N is the desired number of workers.
 
+Alternatively, a docker swarm service can be constructed using stack.yml.
 
 This project is based off a pre-existing atlas jupyter notebook:  https://github.com/atlas-outreach-data-tools/notebooks-collection-opendata/blob/master/13-TeV-examples/uproot_python/HZZAnalysis.ipynb
