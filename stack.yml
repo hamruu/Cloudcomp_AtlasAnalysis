@@ -20,7 +20,7 @@ services:
         constraints: [node.role == manager]
 
   controller:
-    image: atlas/controller:latest
+    image: cloud_project-controller:latest
     networks:
       - rabbit
     environment:
@@ -33,7 +33,7 @@ services:
         condition: none #So it does not run forever
 
   worker:
-    image: atlas/worker:latest
+    image: cloud_project-worker:latest
     networks:
       - rabbit
     environment:
